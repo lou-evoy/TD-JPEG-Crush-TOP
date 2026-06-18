@@ -1,7 +1,5 @@
-/* JPEG Crush TOP — TouchDesigner Custom Operator (C++ TOP, CUDA execute mode).
- *
- * Thin SDK-facing glue. All image processing lives in JpegCrushCUDA.{h,cu}.
- * Validated against TouchDesigner 2025.32050, TOP C++ API version 12.
+/* JPEG Crush TOP — TD glue.
+ * validated: TouchDesigner 2025.32050, TOP C++ API v12.
  */
 #ifndef JPEGCRUSH_TOP_H
 #define JPEGCRUSH_TOP_H

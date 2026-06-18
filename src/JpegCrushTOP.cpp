@@ -1,12 +1,11 @@
-/* JPEG Crush TOP — TouchDesigner SDK glue. Mirrors the CudaTOP sample structure. */
+/* JPEG Crush TOP — TD glue; mirrors the CudaTOP sample. */
 #include "JpegCrushTOP.h"
 
 #include <cassert>
 #include <cstdio>
 #include <algorithm>
 
-// Single source of truth for the plugin version. Bump on each release; keep the numeric
-// parts in sync with customOPInfo.major/minorVersion below.
+// keep in sync with customOPInfo.major/minorVersion below
 static const char* kVersion = "1.0.0";
 
 extern "C"
@@ -47,8 +46,7 @@ DestroyTOPInstance(TOP_CPlusPlusBase* instance, TOP_Context* context)
 
 } // extern "C"
 
-// Recreate the surface object fresh each cook (robust against bypass toggles — TD frees
-// and re-registers the cudaArray, so a cached surface handle would go stale).
+// recreate each cook, never cache: bypass/reactivate frees the cudaArray (stale handle)
 static void
 setupCudaSurface(cudaSurfaceObject_t* surface, cudaArray_t array)
 {
@@ -89,9 +87,7 @@ JpegCrushTOP::getGeneralInfo(TOP_GeneralInfo* ginfo, const OP_Inputs* inputs, vo
 {
     ginfo->cookEveryFrame = false;
     ginfo->cookEveryFrameIfAsked = false;
-    // Keep the Version field read-only here too: getGeneralInfo runs at the start of
-    // every evaluation (before execute's early return), so the lock still applies when
-    // no input is connected and execute would otherwise bail.
+    // Version read-only (runs even with no input, when execute early-returns)
     if (inputs) inputs->enablePar("Version", false);
 }
 
@@ -107,7 +103,7 @@ void
 JpegCrushTOP::execute(TOP_Output* output, const OP_Inputs* inputs, void*)
 {
     myError = nullptr;
-    inputs->enablePar("Version", false);   // make the Version field read-only
+    inputs->enablePar("Version", false);   // read-only
 
     if (inputs->getNumInputs() < 1)
     {
@@ -213,8 +209,7 @@ JpegCrushTOP::setupParameters(OP_ParameterManager* manager, void*)
 {
     const char* page = "Crush";
 
-    // Bypass — pass the input through untouched (the C++ TOP API does not report the
-    // node's native Bypass flag to the plugin, so we expose our own that actually works).
+    // Bypass — API doesn't report native Bypass to plugin, so expose our own
     {
         OP_NumericParameter np("Bypass");
         np.label = "Bypass"; np.page = page; np.defaultValues[0] = 0.0;
@@ -222,7 +217,7 @@ JpegCrushTOP::setupParameters(OP_ParameterManager* manager, void*)
         assert(res == OP_ParAppendResult::Success);
     }
 
-    // Block Size — transform block in pixels (8 = standard JPEG; 16/32 = chunkier blocks).
+    // Block Size — transform block px (8 = JPEG; 16/32 chunkier)
     {
         OP_StringParameter sp("Blocksize");
         sp.label = "Block Size";
@@ -237,7 +232,7 @@ JpegCrushTOP::setupParameters(OP_ParameterManager* manager, void*)
     appendFloat01(manager, "Quality",       "Quality",        page, 0.5);
     appendFloat01(manager, "Chromaquality", "Chroma Quality", page, 0.5);
 
-    // Chroma subsampling mode (box-averaged).
+    // chroma subsample (box-averaged)
     {
         OP_StringParameter sp("Subsample");
         sp.label = "Subsample";
@@ -252,7 +247,7 @@ JpegCrushTOP::setupParameters(OP_ParameterManager* manager, void*)
 
     appendFloat01(manager, "Ringing",   "Ringing",    page, 0.5);
 
-    // Generation Loss — recompress N times on a shifted grid (compounds degradation).
+    // Generation Loss — recompress N times on a shifted grid
     {
         OP_NumericParameter np("Generations");
         np.label = "Generation Loss";
@@ -265,7 +260,7 @@ JpegCrushTOP::setupParameters(OP_ParameterManager* manager, void*)
         assert(res == OP_ParAppendResult::Success);
     }
 
-    // Seed — varies Ringing / DC-drift noise patterns (animate for evolving results).
+    // Seed — Ringing/DC-drift noise pattern (animate for evolving results)
     {
         OP_NumericParameter np("Seed");
         np.label = "Seed";
@@ -278,7 +273,7 @@ JpegCrushTOP::setupParameters(OP_ParameterManager* manager, void*)
         assert(res == OP_ParAppendResult::Success);
     }
 
-    // Version — read-only string on its own tab.
+    // Version — read-only
     {
         OP_StringParameter sp("Version");
         sp.label = "Version";

@@ -1,9 +1,5 @@
-/* CUDA error-checking helpers for the JPEG Crush TOP.
- *
- * Kernels launch asynchronously, so most errors only surface at a later synchronizing
- * call. We check every synchronous CUDA call inline and cudaGetLastError() after each
- * launch. Nothing aborts: the algorithm layer returns a cudaError_t and a message to
- * the TD glue, which puts the node into a clean error state via getErrorString().
+/* CUDA error-check helpers.
+ * async: errors surface at next sync, so check sync calls inline + getLastError after launch.
  */
 #ifndef JPEGCRUSH_CUDA_CHECK_H
 #define JPEGCRUSH_CUDA_CHECK_H

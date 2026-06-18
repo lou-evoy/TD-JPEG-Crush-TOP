@@ -21,21 +21,15 @@ drive them well past a normal encoder.
 
 ## Getting the node
 
-The compiled plugin isn't distributed in this repo. Precompiled builds will be available to
-supporters on **Patreon** *(link coming soon)*. If you'd rather compile it yourself, read on.
+The compiled plugin isn't distributed here — precompiled builds will be available to supporters on **Patreon** *(link coming soon)*. To build it yourself, read on.
 
 ## Build it yourself
 
-**Requirements:** TouchDesigner 2025.32050 (validated), CUDA Toolkit 12.8+ (13.x validated),
-Visual Studio 2022/2026 with the *Desktop development with C++* workload, CMake ≥ 3.24, and an
-NVIDIA GPU (Turing / RTX 20-series or newer).
+**Requirements:** TouchDesigner 2025.32050+, CUDA Toolkit 12.8+, Visual Studio 2022/2026 (Desktop development with C++), CMake 3.24+, and an NVIDIA GPU (Turing / RTX 20 or newer).
 
-The TD C++ SDK headers (`TOP_CPlusPlusBase.h`, `CPlusPlus_Common.h`) aren't in this repo — they
-ship inside TouchDesigner at `<TD install>/Samples/CPlusPlus/CudaTOP`, and `-DTD_SDK_DIR` must
-point there (the default assumes a standard `C:/Program Files/Derivative` install).
+The TD C++ SDK headers (`TOP_CPlusPlusBase.h`, `CPlusPlus_Common.h`) aren't in this repo — they ship with TouchDesigner at `<TD install>/Samples/CPlusPlus/CudaTOP`. Point `-DTD_SDK_DIR` there if your install isn't the default below.
 
-Run the build from the **x64 Native Tools Command Prompt for VS** (Start menu) — a plain
-PowerShell/cmd won't have `cl` and `nvcc` on `PATH`:
+Run from the **x64 Native Tools Command Prompt for VS** (a normal shell won't have `cl`/`nvcc` on `PATH`):
 
 ```bat
 cmake -S . -B build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release ^
@@ -43,10 +37,4 @@ cmake -S . -B build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release ^
 cmake --build build
 ```
 
-This produces `build/JpegCrushTOP.dll`. Copy it to `%USERPROFILE%\Documents\Derivative\Plugins\`
-(or run `cmake --build build --target install_to_td` to do that in one step), restart
-TouchDesigner, and add the node from **OP Create → Custom → "JPEG Crush"**.
-
-The build defaults to `sm_75`–`sm_120` and needs CUDA 12.8+ for `sm_120`. On an older toolkit or
-GPU, override `PS_CUDA_ARCHITECTURES`, e.g. `-DPS_CUDA_ARCHITECTURES="75-real;86-real;89-real"`
-(`nvcc --list-gpu-code` lists what your toolkit supports).
+Copy the built `.dll` from `build\` to `%USERPROFILE%\Documents\Derivative\Plugins\` (or run `cmake --build build --target install_to_td`), restart TouchDesigner, and add the node via **OP Create → Custom → "JPEG Crush"**.

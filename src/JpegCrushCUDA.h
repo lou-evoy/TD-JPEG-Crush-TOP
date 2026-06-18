@@ -1,16 +1,4 @@
-/* JPEG Crush — CUDA algorithm interface (real-time JPEG/DCT artifact engine).
- *
- * Plain C++17 contract between the TouchDesigner glue (JpegCrushTOP.cpp) and the CUDA
- * implementation (JpegCrushCUDA.cu). Also holds host-side helpers (DCT matrix + JPEG
- * quant tables + shared lookups) used by both the device upload and the test's CPU
- * reference, so both use bit-identical constants (the device never calls cosf).
- *
- * Per NxN block (block size 8/16/32): RGB->YCbCr (JFIF), chroma subsampling (box-averaged),
- * level shift, 2D DCT, quantize (Annex-K tables scaled by separate luma/chroma quality),
- * multiplicative AC ringing, dequantize, inverse DCT, YCbCr->RGB. Generation loss re-runs
- * the whole codec N times on a per-pass-shifted block grid (breaks JPEG idempotency ->
- * visible recompression).
- */
+/* JPEG Crush — CUDA algorithm interface + host-side DCT/quant table helpers. */
 #ifndef JPEGCRUSH_CUDA_H
 #define JPEGCRUSH_CUDA_H
 

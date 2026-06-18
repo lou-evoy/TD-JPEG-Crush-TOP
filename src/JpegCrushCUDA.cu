@@ -1,20 +1,5 @@
-/* JPEG Crush — CUDA implementation (real-time JPEG/DCT artifact engine).
- *
- * Targets CUDA Toolkit 13.x (validated on 13.3.33). Fat binary Turing..Blackwell.
- *
- * One thread block per NxN image block (block size 8/16/32, templated). Each block, in
- *   shared memory: load RGB -> luma from own pixel, chroma from a box-averaged subsample
- *   cell -> YCbCr (JFIF) -> level shift -> per-channel 2D DCT -> quantize (Annex-K tables
- *   scaled by separate luma/chroma quality) -> ringing (AC) -> dequantize -> inverse DCT
- *   -> YCbCr -> RGB.
- *
- * Generation loss recompresses N times: each pass reads the previous pass's full image
- * and shifts the block grid by a per-pass offset (host-computed), so re-quantization sees
- * fresh block boundaries and the degradation actually compounds (JPEG is otherwise
- * near-idempotent when re-saved on the same grid at the same quality).
- *
- * The DCT matrix and quant tables are computed on the HOST (see JpegCrushCUDA.h) and
- * uploaded, so the device never calls cosf and the CPU reference can match exactly.
+/* JPEG Crush — CUDA kernels.
+ * validated: CUDA 13.3.33; fat binary Turing..Blackwell.
  */
 #include "JpegCrushCUDA.h"
 #include "CudaCheck.h"
@@ -24,9 +9,9 @@
 
 namespace jpegcrush {
 
-static constexpr float RING_K = 3.0f;   // max AC scale swing for Ringing
+static constexpr float RING_K = 3.0f;   // max AC scale swing
 
-// Integer hashes, identical on host & device (so the CPU reference reproduces noise).
+// host/device-identical hashes
 static __host__ __device__ __forceinline__ uint32_t hashU32(uint32_t x)
 {
     x ^= x >> 16; x *= 0x7feb352dU; x ^= x >> 15; x *= 0x846ca68bU; x ^= x >> 16;
@@ -40,7 +25,7 @@ static __host__ __device__ __forceinline__ float hf(uint32_t h)
 {
     return (float)h * (1.0f / 4294967296.0f) * 2.0f - 1.0f;
 }
-// Per-block, per-coefficient noise for Ringing.
+// per-block, per-coefficient noise
 static __host__ __device__ __forceinline__ float acNoise(int bx, int by, int idx, uint32_t seed)
 {
     return hf(hash2(((uint32_t)bx * 73856093u) ^ ((uint32_t)by * 19349663u) ^ seed,
@@ -63,7 +48,7 @@ static __host__ __device__ __forceinline__ int clampi(int v, int lo, int hi)
     return v < lo ? lo : (v > hi ? hi : v);
 }
 
-// Bypass: copy input straight to output, unaffected (native TOP bypass behavior).
+// bypass: copy input to output
 __global__ void passthroughKernel(
     cudaSurfaceObject_t inSurf, cudaSurfaceObject_t outSurf, int W, int H)
 {
@@ -75,8 +60,7 @@ __global__ void passthroughKernel(
     surf2Dwrite(c, outSurf, x * (int)sizeof(uchar4), y, cudaBoundaryModeZero);
 }
 
-// One thread block per NxN image block, NxN threads. Templated on N (8/16/32) so the DCT
-// loops unroll and shared arrays are statically sized. Tables hold [C(NxN)|qLum|qChr].
+// 1 block per NxN image block, NxN threads. templated on N (8/16/32). tables: [C(NxN)|qLum|qChr]
 template <int N>
 __global__ void jpegCrushKernel(
     cudaSurfaceObject_t inSurf, cudaSurfaceObject_t outSurf, int W, int H, bool bgra,
@@ -93,12 +77,12 @@ __global__ void jpegCrushKernel(
 
     int tx = threadIdx.x, ty = threadIdx.y;     // 0..N-1
     int bx = blockIdx.x,  by = blockIdx.y;
-    // Per-generation shifted grid: this thread's image-space pixel.
+    // shifted-grid image-space pixel
     int px = bx * N + tx - offX, py = by * N + ty - offY;
 
     sC[ty][tx] = C[ty * N + tx];
 
-    // Luma from the pixel's own RGB (clamped at the image border).
+    // luma from own pixel (border-clamped)
     int cx = clampi(px, 0, W - 1);
     int cy = clampi(py, 0, H - 1);
     uchar4 c;
@@ -106,11 +90,8 @@ __global__ void jpegCrushKernel(
     float R, G, B, A = (float)c.w;
     if (bgra) { B = c.x; G = c.y; R = c.z; } else { R = c.x; G = c.y; B = c.z; }
 
-    // Chroma from a box-averaged subsample cell (cross-block). YCbCr is affine in RGB,
-    // so averaging RGB over the cell equals averaging Cb/Cr — one conversion. To bound the
-    // cost, sample on a strided grid of at most ~4x4 points across the cell (the real-JPEG
-    // modes 2x2/4x1 have step 1 -> fully sampled; only the big artistic cells get strided,
-    // which is visually identical for a flat color average but ~64x fewer reads at 32x32).
+    // chroma = box-averaged subsample cell (RGB avg == Cb/Cr avg since affine).
+    // strided to ~4x4 samples: real-JPEG modes fully sampled, big cells strided (~64x fewer reads at 32x32)
     float Rc = R, Gc = G, Bc = B;
     if (subW > 1 || subH > 1)
     {
@@ -147,24 +128,24 @@ __global__ void jpegCrushKernel(
     {
         const float* Q = (ch == 0) ? qLum : qChr;
 
-        // Forward 2D DCT: F = C X C^T.
+        // forward 2D DCT: F = C X C^T
         float acc = 0.f;                                  // A = C X
         for (int r = 0; r < N; ++r) acc += sC[ty][r] * blk[ch][r][tx];
         __syncthreads(); tmp[ty][tx] = acc; __syncthreads();
         float F = 0.f;                                    // F = A C^T
         for (int cc = 0; cc < N; ++cc) F += tmp[ty][cc] * sC[tx][cc];
 
-        // Quantize, then AC ringing.
+        // quantize, then AC ringing
         float qstep = Q[idx];
         float qc = roundq(F / qstep);
 
         if (idx != 0)
-            qc *= (1.0f + ringing * acNoise(bx, by, idx, seedU32) * RING_K);  // AC ringing
+            qc *= (1.0f + ringing * acNoise(bx, by, idx, seedU32) * RING_K);
 
         float Fd = qc * qstep;
 
         __syncthreads(); tmp[ty][tx] = Fd; __syncthreads();
-        // Inverse 2D DCT: X = C^T F C.
+        // inverse 2D DCT: X = C^T F C
         float D = 0.f;                                    // D = C^T F
         for (int u = 0; u < N; ++u) D += sC[u][ty] * tmp[u][tx];
         __syncthreads(); tmp[ty][tx] = D; __syncthreads();
@@ -174,7 +155,7 @@ __global__ void jpegCrushKernel(
         __syncthreads();
     }
 
-    // YCbCr -> RGB. blk[0]=Y-128, blk[1]=Cb-128, blk[2]=Cr-128.
+    // YCbCr -> RGB; blk = Y-128, Cb-128, Cr-128
     float Yv = blk[0][ty][tx] + 128.f;
     float cb = blk[1][ty][tx];
     float cr = blk[2][ty][tx];
@@ -190,7 +171,7 @@ __global__ void jpegCrushKernel(
         surf2Dwrite(out, outSurf, px * (int)sizeof(uchar4), py, cudaBoundaryModeZero);
 }
 
-// Dispatch the right templated instantiation for the active block size N (8/16/32).
+// dispatch templated instantiation for N (8/16/32)
 static void launchCrush(int N, dim3 grid, dim3 block, cudaStream_t stream,
     cudaSurfaceObject_t s, cudaSurfaceObject_t d, int W, int H, bool bgra,
     const float* tables, float ringing, int subW, int subH,
@@ -219,18 +200,17 @@ JpegCrusher::~JpegCrusher()
 cudaError_t JpegCrusher::ensureInit(const char** outError)
 {
     if (myTables) return cudaSuccess;
-    // Sized for the largest block; the matrix + quant tables for the active N are computed
-    // and uploaded in process() whenever the block size or a quality changes.
+    // sized for largest block; per-N tables uploaded in process() on change
     BG_CUDA_RETURN(cudaMalloc(&myTables, 3 * kMaxBlockArea * sizeof(float)), outError);
-    myLastLumaQ = -1.0f; myLastChromaQ = -1.0f; myLastBlock = -1;  // force upload on first process
+    myLastLumaQ = -1.0f; myLastChromaQ = -1.0f; myLastBlock = -1;  // force first upload
     return cudaSuccess;
 }
 
-// Allocate (or reuse) the two ping-pong scratch surfaces used between generation passes.
+// ping-pong scratch surfaces for generation passes
 cudaError_t JpegCrusher::ensureScratch(int W, int H, const char** outError)
 {
     if (myPing && myScratchW == W && myScratchH == H)
-        return cudaSuccess;  // reuse — no per-frame allocation
+        return cudaSuccess;  // reuse
 
     if (myPingSurf) { cudaDestroySurfaceObject(myPingSurf); myPingSurf = 0; }
     if (myPongSurf) { cudaDestroySurfaceObject(myPongSurf); myPongSurf = 0; }
@@ -259,9 +239,9 @@ cudaError_t JpegCrusher::process(
     const int W = p.width, H = p.height;
 
     if (!inSurf)
-        return cudaSuccess;  // no input: caller leaves output as-is
+        return cudaSuccess;  // no input: output left as-is
 
-    // Bypass: pass the input through untouched, like a native TOP's Bypass flag.
+    // bypass
     if (p.bypass)
     {
         dim3 b(16, 16, 1);
@@ -276,8 +256,7 @@ cudaError_t JpegCrusher::process(
     int N = p.blockSize;
     if (N != 8 && N != 16 && N != 32) N = 8;
 
-    // Recompute + upload the DCT matrix and quant tables when the block size or a quality
-    // changes (the matrix depends on N; the tables on N + quality). Cheap, happens rarely.
+    // re-upload tables only when block size or a quality changes
     if (N != myLastBlock || p.quality != myLastLumaQ || p.chromaQuality != myLastChromaQ)
     {
         computeDctMatrixN(N, myHost);
@@ -291,8 +270,7 @@ cudaError_t JpegCrusher::process(
 
     int subW = 1, subH = 1; subsampleCell(p.subsample, subW, subH);
 
-    // Grid is one block larger each way so per-generation shifted blocks still cover the
-    // image; out-of-range threads bounds-skip their write.
+    // +1 block each way to cover shifted grid; OOB threads skip write
     dim3 block(N, N, 1);
     dim3 grid(divUp(W, N) + 1, divUp(H, N) + 1, 1);
 
@@ -308,9 +286,7 @@ cudaError_t JpegCrusher::process(
     }
     else
     {
-        // Generation loss: recompress repeatedly, ping-ponging through owned scratch
-        // surfaces, shifting the block grid each pass (gen 0 = no shift). The final pass
-        // writes the node's output surface.
+        // generation loss: ping-pong scratch, shift grid each pass (gen 0 = no shift), last pass -> output
         BG_CUDA_RETURN(ensureScratch(W, H, outError), outError);
         cudaSurfaceObject_t src = inSurf;
         for (int g = 0; g < G; ++g)
