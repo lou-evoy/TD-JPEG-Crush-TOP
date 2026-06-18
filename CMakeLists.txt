@@ -1,7 +1,5 @@
-# =============================================================================
-# JPEG Crush TOP — TouchDesigner Custom Operator (CUDA, JPEG/DCT artifacts)
+# JPEG Crush TOP — TouchDesigner Custom Operator (CUDA, JPEG/DCT artifacts).
 # Validated: TouchDesigner 2025.32050 (TOP API v12), CUDA 13.3, VS 2022/2026, CMake >= 3.24.
-# =============================================================================
 cmake_minimum_required(VERSION 3.24)
 
 project(JpegCrushTOP LANGUAGES CXX CUDA)

@@ -75,7 +75,6 @@ __global__ void passthroughKernel(
     surf2Dwrite(c, outSurf, x * (int)sizeof(uchar4), y, cudaBoundaryModeZero);
 }
 
-// --------------------------------- kernel -----------------------------------
 // One thread block per NxN image block, NxN threads. Templated on N (8/16/32) so the DCT
 // loops unroll and shared arrays are statically sized. Tables hold [C(NxN)|qLum|qChr].
 template <int N>
@@ -208,7 +207,6 @@ static void launchCrush(int N, dim3 grid, dim3 block, cudaStream_t stream,
             s, d, W, H, bgra, tables, ringing, subW, subH, ox, oy, seed);
 }
 
-// ------------------------------ JpegCrusher ---------------------------------
 JpegCrusher::~JpegCrusher()
 {
     cudaFree(myTables);
@@ -291,7 +289,6 @@ cudaError_t JpegCrusher::process(
 
     uint32_t seedU32 = hashU32((uint32_t)(p.seed * 1000.0f + 0.5f));
 
-    // Map sliders to kernel parameters.
     int subW = 1, subH = 1; subsampleCell(p.subsample, subW, subH);
 
     // Grid is one block larger each way so per-generation shifted blocks still cover the

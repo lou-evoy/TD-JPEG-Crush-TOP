@@ -1,12 +1,12 @@
-/* CUDA error-checking helpers for the Block Glitch TOP.
+/* CUDA error-checking helpers for the JPEG Crush TOP.
  *
  * Kernels launch asynchronously, so most errors only surface at a later synchronizing
  * call. We check every synchronous CUDA call inline and cudaGetLastError() after each
  * launch. Nothing aborts: the algorithm layer returns a cudaError_t and a message to
  * the TD glue, which puts the node into a clean error state via getErrorString().
  */
-#ifndef BLOCKGLITCH_CUDA_CHECK_H
-#define BLOCKGLITCH_CUDA_CHECK_H
+#ifndef JPEGCRUSH_CUDA_CHECK_H
+#define JPEGCRUSH_CUDA_CHECK_H
 
 #include "cuda_runtime.h"
 #include <cstdio>
@@ -35,10 +35,10 @@ inline void bg_setError(const char** outErrPtr, const char* expr,
     snprintf(buf, 512, "CUDA error %d (%s) at %s:%d -> %s",
              (int)err, cudaGetErrorString(err), file, line, expr);
 #ifdef _DEBUG
-    fprintf(stderr, "[BlockGlitchTOP] %s\n", buf);
+    fprintf(stderr, "[JpegCrushTOP] %s\n", buf);
 #endif
     if (outErrPtr)
         *outErrPtr = buf;
 }
 
-#endif // BLOCKGLITCH_CUDA_CHECK_H
+#endif // JPEGCRUSH_CUDA_CHECK_H
