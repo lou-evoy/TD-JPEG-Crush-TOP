@@ -44,4 +44,4 @@ cmake --build build
 ```
 
 Output: `build/JpegCrushTOP.dll`. Copy it to `%USERPROFILE%\Documents\Derivative\Plugins\`,
-restart TouchDesigner, and add the node from **OP Create → TOP → "JPEG Crush"**.
+restart TouchDesigner, and add the node from **OP Create → Custom → "JPEG Crush"**.
