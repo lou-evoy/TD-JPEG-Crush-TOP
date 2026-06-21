@@ -9,8 +9,6 @@ drive them well past a normal encoder.
 
 [![JPEG Crush TOP demo](media/jpeg-crush-demo-poster.jpg)](media/jpeg-crush-demo.mp4)
 
-▶ **[Play the demo](media/jpeg-crush-demo.mp4)** — opens in GitHub's built-in video player.
-
 ## Why this one
 
 - **A real codec, not a filter.** The artifacts come from actual coefficient-domain
