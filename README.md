@@ -7,8 +7,7 @@ drive them well past a normal encoder.
 
 ## Demo
 
-<!-- To embed an inline auto-playing player: edit this README on github.com, delete the link below, then drag media/jpeg-crush-demo.mp4 into the editor. GitHub uploads it and inserts the video player automatically. -->
-[Watch the demo ▶](media/jpeg-crush-demo.mp4)
+https://github.com/user-attachments/assets/018f9594-9398-4617-addc-0854d2b7a64a
 
 ## Why this one
 
