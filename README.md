@@ -7,8 +7,9 @@ drive them well past a normal encoder.
 
 ## Demo
 
-<!-- screenshots / GIFs / video go here -->
-*Coming soon.*
+<video src="https://github.com/lou-evoy/TD-JPEG-Crush-TOP/raw/main/media/jpeg-crush-demo.mp4" controls muted loop width="100%"></video>
+
+> If the video doesn't play inline, [watch it here](media/jpeg-crush-demo.mp4).
 
 ## Why this one
 
@@ -21,7 +22,7 @@ drive them well past a normal encoder.
 
 ## Getting the node
 
-The compiled plugin isn't distributed here — precompiled builds will be available on **Gumroad** *(link coming soon)*. To build it yourself, read on.
+The compiled plugin isn't distributed here — precompiled builds are available on **[Gumroad](https://louevoy.gumroad.com)**. To build it yourself, read on.
 
 ## Build it yourself
 
