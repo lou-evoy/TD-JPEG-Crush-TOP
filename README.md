@@ -7,9 +7,9 @@ drive them well past a normal encoder.
 
 ## Demo
 
-<video src="https://github.com/lou-evoy/TD-JPEG-Crush-TOP/raw/main/media/jpeg-crush-demo.mp4" controls muted loop width="100%"></video>
+[![JPEG Crush TOP demo](media/jpeg-crush-demo-poster.jpg)](media/jpeg-crush-demo.mp4)
 
-> If the video doesn't play inline, [watch it here](media/jpeg-crush-demo.mp4).
+▶ **[Play the demo](media/jpeg-crush-demo.mp4)** — opens in GitHub's built-in video player.
 
 ## Why this one
 
